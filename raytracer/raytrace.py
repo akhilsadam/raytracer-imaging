@@ -201,7 +201,7 @@ class raytracer:
         singleproject[blockRay, cudaOptions.maxthreadsperblock](projection,self.voxels,rayNHit,rayHits,nrays)
         return projection
     
-    def reconstruct(self,rays,iterations=1,make_plot=True):
+    def reconstruct(self,rays,iterations=1,autosave=True,make_plot=True):
         nrays = len(rays)
         nweight = int(self.maximal_length)
 
@@ -247,7 +247,8 @@ class raytracer:
 
             if nhits > 0:
                 projection_error[rayIndex] = algorithms.backpropagate(self.method,self.voxels,calculated_projection[0],weights,hits,nhits)
-                
+        
+        self.save_voxels()
         if make_plot:
             plt.plot(projection_error)
         return projection_error
@@ -260,6 +261,12 @@ class raytracer:
             plt.imshow(projection.reshape(self.camera_size),extent=np.array(self.camera_range).flatten())
             plt.colorbar()
         return rayNHit,rayHits,rayWeights,projection
+    
+    def load_voxels(self,path="voxelImage.npy"):
+        self.voxels = np.load(path)
+        
+    def save_voxels(self,path="voxelImage.npy"):
+        np.save(path,self.voxels)
             
         
         

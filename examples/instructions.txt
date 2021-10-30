@@ -1,0 +1,1 @@
+Move outside package, or appropriately install the raytracer package to run the notebook.
