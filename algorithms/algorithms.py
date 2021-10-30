@@ -53,7 +53,10 @@ class algorithms:
     @staticmethod
     @jit(nopython=True)
     def error_OSEM(calculated):
-        return 1/calculated
+        if calculated != 0.0:
+            return 1/calculated
+        else:
+            return 1
 
 ########################
 ## CUDA KERNELS ########

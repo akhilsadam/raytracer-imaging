@@ -177,6 +177,7 @@ class raytracer:
         return rayNHit,rayHits,rayWeights
     
     def __init__(self,voxel_size,method="OSEM",f_Nyquist=2,voxel_radius=math.sqrt(2)):
+        self.methodName = method
         self.method = algorithms.getMethodID(method)
         # prepare voxel coordinates
         self.voxels,_,self.nvoxels = voxel.generateEmptyVoxels(voxel_size,algorithms.getFillValue(method),voxel_radius)
@@ -253,13 +254,15 @@ class raytracer:
             plt.plot(projection_error)
         return projection_error
     
-    def make_projection(self,phi=0.0,alpha=0.0,make_plot=True):
+    def make_projection(self,phi=0.0,alpha=0.0,make_plot=True,path="Projection"):
         rayNHit,rayHits,rayWeights = self.norm_raytrace(phi,alpha)
         projection = self.rayproject(rayNHit,rayHits)
         if make_plot:
             plt.figure(figsize=(12,12))
             plt.imshow(projection.reshape(self.camera_size),extent=np.array(self.camera_range).flatten())
             plt.colorbar()
+            plt.savefig(path+"_"+str(int(phi*180/np.pi))+"_"+str(int(alpha*180/np.pi))+"_"+self.methodName+".jpg",dpi=600)
+            plt.show()
         return rayNHit,rayHits,rayWeights,projection
     
     def load_voxels(self,path="voxelImage.npy"):
