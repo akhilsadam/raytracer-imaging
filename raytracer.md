@@ -12,10 +12,11 @@ Directory:
         voxel.py
         raytrace.py
     algorithms/
-        art/art.py
-        fbp/fbp.py
-        mlem/mlem.py
-        osem/osem.py
+        algorithms.py/
+            art 
+            fbp
+            mlem
+            osem
 ##
 Dependencies:
 matplotlib

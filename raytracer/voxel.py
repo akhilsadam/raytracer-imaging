@@ -3,7 +3,7 @@ import numpy as np
 from numba import cuda
 from raytracer.cudaOptions import cudaOptions
 
-# Not privatizing the quaternion functions as cuda fails inside a class.
+# Not privatizing the cuda functions as cuda fails inside a class.
 
 #Ray and Voxel:
 SphereVoxel = np.dtype([
@@ -46,14 +46,14 @@ def setRayPosition(rays,rayverts,camera_nrays):
         
 class voxel:
     # prepare voxel coordinates
-    def generateEmptyVoxels(voxel_size,voxel_radius=math.sqrt(2)):
+    def generateEmptyVoxels(voxel_size,fill=0,voxel_radius=math.sqrt(2)):
         x, y, z = np.indices(voxel_size)
         x = x - int(voxel_size[0]/2)
         y = y - int(voxel_size[1]/2)
         z = z - int(voxel_size[2]/2)
         nvoxels = voxel_size[0]*voxel_size[1]*voxel_size[2]
         
-        voxels = np.empty(nvoxels,dtype=SphereVoxel)
+        voxels = np.full(nvoxels,fill_value=fill,dtype=SphereVoxel)
         verts = np.array([x.flatten(),y.flatten(),z.flatten()]).T.astype(float)
 
         blocks = math.ceil(nvoxels / cudaOptions.maxthreadsperblock)

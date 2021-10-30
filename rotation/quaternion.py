@@ -6,6 +6,7 @@ from raytracer.cudaOptions import cudaOptions
 # Not privatizing the quaternion functions as cuda fails inside a class.
 
 # http://graphics.stanford.edu/courses/cs348a-17-winter/Papers/pdf -- eq#3
+# also https://github.com/Unity-Technologies/Unity.Mathematics/blob/master/src/Unity.Mathematics/quaternion.cs
 #-------------------------------------------------------- CUDA DEVICE FUNCTION ------------- (not user callable) ------
 @cuda.jit(device=True)
 def _inner(qx,qy,qz,q2x,q2y,q2z):
@@ -16,6 +17,11 @@ def _innerQ(qw,qx,qy,qz,q2w,q2x,q2y,q2z):
 @cuda.jit(device=True)
 def _outer(qx,qy,qz,q2x,q2y,q2z):
     return ((qy*q2z) - (qz*q2y), (qz*q2x) - (qx*q2z), (qx*q2y) - (qy*q2x))
+@cuda.jit(device=True)
+def outer(v1,v2):
+    qx,qy,qz = v1
+    q2x,q2y,q2z = v2
+    return _outer(qx,qy,qz,q2x,q2y,q2z)
 @cuda.jit(device=True)
 def _norm(vx,vy,vz):
     return math.sqrt(_inner(vx,vy,vz,vx,vy,vz))
@@ -64,6 +70,11 @@ def multQ(q,q2):
     qw,qx,qy,qz = q
     q2w,q2x,q2y,q2z = q2
     return _multQ(qw,qx,qy,qz,q2w,q2x,q2y,q2z)
+@cuda.jit(device=True)
+def dirV(vert1,vert2):
+    vx1,vy1,vz1 = vert1
+    vx2,vy2,vz2 = vert2
+    return _normalizeV(vx2-vx1,vy2-vy1,vz2-vz1)
 #-------------------------------------
 @cuda.jit(device=True)
 def conjugate(qw,qx,qy,qz):
@@ -88,12 +99,27 @@ def _rotq(vx,vy,vz,qw,qx,qy,qz):
     return X,Y,Z
 
 @cuda.jit(device=True)
+def _screenspaceq(vx,vy,vz,qw,qx,qy,qz):
+    A = (qw*qw) - _norm2(qx,qy,qz)
+    B = 2*_inner(qx,qy,qz,vx,vy,vz)
+    _,cy,cz = _outer(qx,qy,qz,vx,vy,vz)
+    C = 2*qw
+    Y = A*vy + B*qy + C*cy
+    Z = A*vz + B*qz + C*cz
+    return Y,Z
+
+@cuda.jit(device=True)
 def rotq(vertex,q):
     vx,vy,vz = vertex
     #qw,qx,qy,qz = normalizeQ(q)
     qw,qx,qy,qz = normalizeQ(q)
     x,y,z = _rotq(vx,vy,vz,qw,qx,qy,qz)
     return x,y,z
+
+@cuda.jit(device=True)
+def screenspaceq(vx,vy,vz,q):
+    qw,qx,qy,qz = q
+    return _screenspaceq(vx,vy,vz,qw,qx,qy,qz)
 
 # @cuda.jit(device=True)
 # def rotate(vertex,angle,axis):
@@ -109,6 +135,14 @@ def genq(phi,alpha):
     qB = _q(-alpha,uvector) # Y'-rotation
     return multQ(qB,qA)
 
+@cuda.jit(device=True)
+def genq_LookRotation(direction):
+    # needs normalized input
+    dx,dy,dz = direction
+    phi = math.atan2(dy,dx)
+    dxy = math.sqrt(dx*dx + dy*dy)
+    alpha = math.acos(dxy) #dxy/1
+    return genq(phi,alpha)  
 #-------------------------------------------------------- CUDA KERNELS ------------- (user callable) -------------------
 @cuda.jit
 def rotateq(vertex,q):
@@ -124,10 +158,16 @@ def _rotateQ(verts,q):
         verts[i,0] = x
         verts[i,1] = y
         verts[i,2] = z
+        
 @cuda.jit
 def generateq(q,phi,alpha):
     q[0:4] = genq(phi,alpha)
 
+    
+@cuda.jit
+def generateVQ_LOR(q,vertex1,vertex2):
+    direction = dirV(vertex1,vertex2)
+    q[0:4] = genq_LookRotation(direction)
 #--------------------------------------------------------
 class quaternion:
     @staticmethod
