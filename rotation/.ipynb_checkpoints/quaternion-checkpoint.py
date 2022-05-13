@@ -109,6 +109,13 @@ def _screenspaceq(vx,vy,vz,qw,qx,qy,qz):
     return Y,Z
 
 @cuda.jit(device=True)
+def rotvq(vx,vy,vz,q):
+    #qw,qx,qy,qz = normalizeQ(q)
+    qw,qx,qy,qz = normalizeQ(q)
+    x,y,z = _rotq(vx,vy,vz,qw,qx,qy,qz)
+    return x,y,z
+
+@cuda.jit(device=True)
 def rotq(vertex,q):
     vx,vy,vz = vertex
     #qw,qx,qy,qz = normalizeQ(q)

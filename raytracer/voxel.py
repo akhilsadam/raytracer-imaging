@@ -1,17 +1,15 @@
 import math
 import numpy as np
-from numba import cuda
+from numba import cuda,jit
 from raytracer.cudaOptions import cudaOptions
 
 # Not privatizing the cuda functions as cuda fails inside a class.
 
 #Ray and Voxel:
 SphereVoxel = np.dtype([
-    # RGB color values (floats from [0, 1])
-    ('r', 'f8'),  ('g', 'f8'), ('b', 'f8'), 
-    # sphere radius 
-    ('radius', 'f8'),
-    # sphere (x, y, z) coordinates 
+    # value
+    ('r', 'f8'),
+    # sphere (x, y, z) coordinates
     ('x', 'f8'),  ('y', 'f8'), ('z', 'f8'),], align=True) 
 Ray = np.dtype([
     # screenspace (y, z) coordinates (assuming direction along -x)
@@ -26,11 +24,10 @@ Ray = np.dtype([
 # setVoxelPosition[blocks,cudaOptions.maxthreadsperblock](voxels,verts,voxel_radius
 
 @cuda.jit
-def setVoxelPosition(voxels,verts,r,nvoxels):
+def setVoxelPosition(voxels,verts,nvoxels):
     i = cuda.grid(1) # thread number
     if i<nvoxels:
         x,y,z = verts[i]
-        voxels[i].radius = r
         voxels[i].x = x
         voxels[i].y = y
         voxels[i].z = z
@@ -46,7 +43,7 @@ def setRayPosition(rays,rayverts,camera_nrays):
         
 class voxel:
     # prepare voxel coordinates
-    def generateEmptyVoxels(voxel_size,fill=0,voxel_radius=math.sqrt(2)):
+    def generateEmptyVoxels(voxel_size,fill=0):
         x, y, z = np.indices(voxel_size)
         x = x - int(voxel_size[0]/2)
         y = y - int(voxel_size[1]/2)
@@ -54,14 +51,15 @@ class voxel:
         nvoxels = voxel_size[0]*voxel_size[1]*voxel_size[2]
         
         voxels = np.full(nvoxels,fill_value=fill,dtype=SphereVoxel)
-        verts = np.array([x.flatten(),y.flatten(),z.flatten()]).T.astype(float)
+        verts = np.array([x.flatten(),y.flatten(),z.flatten()])
+        vertsF = verts.T.astype(float)
 
         blocks = math.ceil(nvoxels / cudaOptions.maxthreadsperblock)
-        setVoxelPosition[blocks,cudaOptions.maxthreadsperblock](voxels,verts,voxel_radius,nvoxels)
+        setVoxelPosition[blocks,cudaOptions.maxthreadsperblock](voxels,vertsF,nvoxels)
         return voxels,verts,nvoxels
 
 class pixel:   
-    def generateCamera(f_Ny,voxel_size,voxel_radius=math.sqrt(2)):
+    def generateCamera(f_Ny,voxel_size):
         maximal_length = int(math.sqrt(np.sum(np.power(voxel_size,2)))) 
         range_length = 0.5*maximal_length
         camera_size = np.array([f_Ny*maximal_length,f_Ny*maximal_length])
